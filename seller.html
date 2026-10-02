@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Penjual - LUCABI Admin Cloud</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Poppins', sans-serif; }
+        body { background: #f4f6f9; color: #333; }
+        .header { background: #3D2314; color: white; padding: 15px 5%; display: flex; justify-content: space-between; align-items: center; }
+        .container { padding: 30px 5%; }
+        .grid { display: grid; grid-template-columns: 1fr 2fr; gap: 25px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .card h3 { margin-bottom: 15px; color: #3D2314; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px; }
+        .form-control { width: 100%; padding: 10px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 6px; }
+        .btn { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .btn-success { background: #556B2F; color: white; }
+        .btn-warning { background: #E89B27; color: white; }
+        .btn-danger { background: #D9531E; color: white; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; border: 1px solid #e0e0e0; text-align: left; font-size: 0.85rem; }
+        th { background: #FAF6F0; color: #3D2314; }
+        .badge { padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; }
+        .badge-pending { background: #fff3cd; color: #856404; }
+        .badge-done { background: #d4edda; color: #155724; }
+        .img-preview { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; }
+        .banner-preview { width: 100%; height: 100px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; }
+        .proof-img { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; cursor: pointer; }
+        .sync-status { font-size: 0.8rem; background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2><i class="fa-solid fa-store"></i> DASHBOARD PENJUAL LUCABI</h2>
+        <div class="sync-status">
+            <i class="fa-solid fa-cloud-check" id="syncIcon" style="color: #4cd137;"></i>
+            <span id="syncText">Terhubung ke Cloud Database</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="grid">
+            <!-- Sisi Kiri: Edit Banner Website & Edit Produk -->
+            <div>
+                <!-- KELOLA BANNER WEBSITE -->
+                <div class="card">
+                    <h3><i class="fa-solid fa-image"></i> Gambar Banner Utama Website</h3>
+                    
+                    <label style="font-size:0.85rem; font-weight:bold;">1. Gambar Hero Utama (Atas):</label>
+                    <img id="previewHero" src="" class="banner-preview" onerror="this.src='https://via.placeholder.com/300x100?text=Hero+Image'">
+                    <input type="text" id="inputHeroImg" class="form-control" placeholder="URL Gambar Hero baru">
+                    
+                    <label style="font-size:0.85rem; font-weight:bold;">2. Gambar About Us (Tentang Kami):</label>
+                    <img id="previewAbout" src="" class="banner-preview" onerror="this.src='https://via.placeholder.com/300x100?text=About+Image'">
+                    <input type="text" id="inputAboutImg" class="form-control" placeholder="URL Gambar About baru">
+
+                    <button onclick="saveBannersCloud()" class="btn btn-success" style="width:100%;">
+                        <i class="fa-solid fa-floppy-disk"></i> Simpan Gambar Utama ke Cloud
+                    </button>
+                </div>
+
+                <!-- KELOLA PRODUK & STOK -->
+                <div class="card">
+                    <h3><i class="fa-solid fa-boxes-stacked"></i> Kelola & Edit Menu</h3>
+                    <div id="productEditList">
+                        <!-- Render via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sisi Kanan: Daftar Pesanan Masuk (Realtime Sync) -->
+            <div>
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3><i class="fa-solid fa-list-check"></i> Pesanan Masuk (Realtime)</h3>
+                        <button onclick="fetchCloudData()" class="btn btn-warning" style="padding:6px 12px; font-size:0.8rem;">
+                            <i class="fa-solid fa-rotate"></i> Refresh Manual
+                        </button>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID / Waktu</th>
+                                    <th>Pembeli & WA</th>
+                                    <th>Pesanan</th>
+                                    <th>Alamat / Maps</th>
+                                    <th>Bayar</th>
+                                    <th>Bukti Transfer</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="orderTableBody">
+                                <!-- Render via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // INTEGRASI KREDENSIAL JSONBIN API
+        const BIN_ID = "6abf085bac6210605a0ae03d";
+        const API_KEY = "$2a$10$4BNPDkDin5iG0Ei65mT2K.aKAaXsH3jxuqOYi00BntE2WA/UrGOr2";
+        const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+        // Global Store Data Default Structure
+        let globalStoreData = {
+            store_info: {
+                hero_image: "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?auto=format&fit=crop&w=800&q=80",
+                about_image: "https://images.unsplash.com/photo-1621263764928-df1444c5e859?auto=format&fit=crop&w=800&q=80"
+            },
+            products: [],
+            orders: []
+        };
+
+        // Indicator Sync State
+        function setSyncing(isSync) {
+            const icon = document.getElementById('syncIcon');
+            const text = document.getElementById('syncText');
+            if (isSync) {
+                icon.className = "fa-solid fa-spinner fa-spin";
+                icon.style.color = "#E89B27";
+                text.innerText = "Menghubungkan ke Cloud...";
+            } else {
+                icon.className = "fa-solid fa-cloud-check";
+                icon.style.color = "#4cd137";
+                text.innerText = "Terhubung ke Cloud Database";
+            }
+        }
+
+        // Ambil Data dari Server JSONbin
+        async function fetchCloudData() {
+            setSyncing(true);
+            try {
+                const response = await fetch(JSONBIN_URL, {
+                    method: 'GET',
+                    headers: { 'X-Master-Key': API_KEY }
+                });
+                const result = await response.json();
+                if (result.record) {
+                    globalStoreData = result.record;
+                    renderBannersAdmin();
+                    renderProductsAdmin();
+                    renderOrdersAdmin();
+                }
+            } catch (error) {
+                console.error("Gagal koneksi ke JSONbin:", error);
+            } finally {
+                setSyncing(false);
+            }
+        }
+
+        // Push / Simpan Data Kembali ke Server Cloud JSONbin
+        async function pushCloudData() {
+            setSyncing(true);
+            try {
+                const response = await fetch(JSONBIN_URL, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': API_KEY
+                    },
+                    body: JSON.stringify(globalStoreData)
+                });
+                const resJson = await response.json();
+                setSyncing(false);
+                return resJson;
+            } catch (error) {
+                console.error("Gagal update data ke JSONbin:", error);
+                alert("Gagal memperbarui database Cloud!");
+                setSyncing(false);
+            }
+        }
+
+        // Display & Render Banners
+        function renderBannersAdmin() {
+            const info = globalStoreData.store_info || {};
+            const heroImg = info.hero_image || "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?auto=format&fit=crop&w=800&q=80";
+            const aboutImg = info.about_image || "https://images.unsplash.com/photo-1621263764928-df1444c5e859?auto=format&fit=crop&w=800&q=80";
+
+            document.getElementById('previewHero').src = heroImg;
+            document.getElementById('inputHeroImg').value = heroImg;
+
+            document.getElementById('previewAbout').src = aboutImg;
+            document.getElementById('inputAboutImg').value = aboutImg;
+        }
+
+        // Simpan Perubahan Gambar Banner Website
+        async function saveBannersCloud() {
+            if (!globalStoreData.store_info) globalStoreData.store_info = {};
+
+            globalStoreData.store_info.hero_image = document.getElementById('inputHeroImg').value;
+            globalStoreData.store_info.about_image = document.getElementById('inputAboutImg').value;
+
+            await pushCloudData();
+            alert('Gambar Banner Utama berhasil di-update secara Live di Cloud Server!');
+            renderBannersAdmin();
+        }
+
+        // Display & Render Produk Menu
+        function renderProductsAdmin() {
+            const products = globalStoreData.products || [];
+            const container = document.getElementById('productEditList');
+            container.innerHTML = '';
+
+            if (products.length === 0) {
+                container.innerHTML = '<p style="font-size:0.85rem; color:#888;">Belum ada menu produk.</p>';
+                return;
+            }
+
+            products.forEach((p, index) => {
+                container.innerHTML += `
+                    <div style="border:1px solid #ddd; padding:12px; border-radius:8px; margin-bottom:12px;">
+                        <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+                            <img src="${p.image}" class="img-preview" onerror="this.src='https://via.placeholder.com/50'">
+                            <strong>${p.name}</strong>
+                        </div>
+                        <label style="font-size:0.8rem;">Harga (Rp):</label>
+                        <input type="number" class="form-control" id="prod-price-${index}" value="${p.price}">
+                        
+                        <label style="font-size:0.8rem;">Stok Sisa:</label>
+                        <input type="number" class="form-control" id="prod-stock-${index}" value="${p.stock}">
+                        
+                        <label style="font-size:0.8rem;">URL Gambar Produk:</label>
+                        <input type="text" class="form-control" id="prod-img-${index}" value="${p.image}">
+                        
+                        <button onclick="saveProductEdit(${index})" class="btn btn-warning" style="width:100%;">Update Menu Ini</button>
+                    </div>
+                `;
+            });
+        }
+
+        // Simpan Perubahan Produk
+        async function saveProductEdit(index) {
+            let products = globalStoreData.products || [];
+            products[index].price = parseInt(document.getElementById(`prod-price-${index}`).value);
+            products[index].stock = parseInt(document.getElementById(`prod-stock-${index}`).value);
+            products[index].image = document.getElementById(`prod-img-${index}`).value;
+
+            await pushCloudData();
+            alert('Data produk menu berhasil diperbarui di JSONbin!');
+            renderProductsAdmin();
+        }
+
+        // Display & Render Daftar Pesanan Masuk
+        function renderOrdersAdmin() {
+            const orders = globalStoreData.orders || [];
+            const tableBody = document.getElementById('orderTableBody');
+            tableBody.innerHTML = '';
+
+            if (orders.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center;">Belum ada pesanan masuk.</td></tr>`;
+                return;
+            }
+
+            orders.forEach((o, index) => {
+                let proofHTML = o.payment_proof_url 
+                    ? `<a href="${o.payment_proof_url}" target="_blank"><img src="${o.payment_proof_url}" class="proof-img" onerror="this.src='https://via.placeholder.com/80?text=Bukti'"></a>` 
+                    : `<span style="color:#999; font-size:0.75rem;">Tidak ada (COD)</span>`;
+
+                tableBody.innerHTML += `
+                    <tr>
+                        <td>
+                            <strong>${o.order_id || 'LUCABI-OLD'}</strong><br>
+                            <span style="font-size:0.75rem; color:#666;">${o.timestamp || '-'}</span>
+                        </td>
+                        <td>
+                            <strong>${o.customer_name || '-'}</strong><br>
+                            <a href="https://wa.me/${(o.whatsapp || '').replace(/^0/, '62')}" target="_blank" style="color:green;"><i class="fa-brands fa-whatsapp"></i> ${o.whatsapp || '-'}</a>
+                        </td>
+                        <td>
+                            ${o.quantity || 1}x ${o.product_name || '-'}<br>
+                            <strong>Total: Rp${(o.total_price || 0).toLocaleString('id-ID')}</strong><br>
+                            <em style="font-size:0.75rem; color:#555;">Catatan: ${o.notes || '-'}</em>
+                        </td>
+                        <td>
+                            <a href="${(o.maps_url && o.maps_url.startsWith('http')) ? o.maps_url : 'https://maps.google.com/?q=' + encodeURIComponent(o.maps_url || '')}" target="_blank" style="color:#0066cc;">
+                                <i class="fa-solid fa-map-pin"></i> Buka Location Maps
+                            </a>
+                        </td>
+                        <td>
+                            <span class="badge ${o.payment_method === 'Transfer' ? 'badge-done' : 'badge-pending'}">${o.payment_method || 'Cash'}</span>
+                        </td>
+                        <td>${proofHTML}</td>
+                        <td>
+                            <button onclick="deleteOrder(${index})" class="btn btn-danger" style="padding:4px 8px; font-size:0.75rem;"><i class="fa-solid fa-trash"></i> Hapus</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Hapus Pesanan
+        async function deleteOrder(index) {
+            if (confirm('Apakah Anda yakin ingin menghapus pesanan ini dari Cloud Database?')) {
+                globalStoreData.orders.splice(index, 1);
+                await pushCloudData();
+                renderOrdersAdmin();
+            }
+        }
+
+        // Auto Poll Update dari Cloud Server setiap 10 Detik
+        setInterval(fetchCloudData, 10000);
+
+        // Initial Load
+        window.addEventListener('DOMContentLoaded', fetchCloudData);
+    </script>
+</body>
+</html>
